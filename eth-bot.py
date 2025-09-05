@@ -5,7 +5,7 @@ import logging
 from decouple import config
 from helpers import atr_breakout_signals
 
-DERIV_API_TOKEN = config("DERIV_API_TOKEN")
+DERIV_API_TOKEN = "AkiNgAu1tDXHzcM"
 API_URL = "https://api.deriv.com/v2"
 symbol = "frxETHUSD"
 amount = 7  # USD stake
