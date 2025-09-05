@@ -4,3 +4,4 @@ numpy
 matplotlib
 MetaTrader5
 python-decouple
+websocket-client
