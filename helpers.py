@@ -3,7 +3,6 @@ from datetime import datetime
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import MetaTrader5 as mt5
 from decouple import config
 
 
