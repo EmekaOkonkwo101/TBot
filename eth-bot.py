@@ -49,8 +49,6 @@ def place_multiplier_trade(symbol, direction, amount, tp, sl):
 def run_bot():
     last_trade_direction = None
     tickers = ['ETH-USD']
-    ping_interval = 600  # 10 minutes
-    last_ping_time = time.time()
 
     while True:
         try:
