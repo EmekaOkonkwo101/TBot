@@ -4,18 +4,28 @@ import time
 import logging
 from decouple import config
 from helpers import atr_breakout_signals
+from fastapi import FastAPI
+import uvicorn
+import threading
+import os
 
 # === Config ===
 DERIV_API_TOKEN = "AkiNgAu1tDXHzcM"
 API_URL = "https://api.deriv.com/v2"
 symbol = "frxETHUSD"
-amount = 7  # USD stake
-RENDER_URL = "https://trade-bot-haih.onrender.com"  # Replace with your actual URL
+amount = 30  # USD stake
 
 headers = {
     "Authorization": f"Bearer {DERIV_API_TOKEN}",
     "Content-Type": "application/json"
 }
+
+# === FastAPI App ===
+app = FastAPI()
+
+@app.get("/")
+def read_root():
+    return {"status": "Bot is running"}
 
 # === Trade Function ===
 def place_multiplier_trade(symbol, direction, amount, tp, sl):
@@ -35,43 +45,42 @@ def place_multiplier_trade(symbol, direction, amount, tp, sl):
     response = requests.post(f"{API_URL}/buy", json=payload, headers=headers)
     print(response.json())
 
-# === Self-Ping Function ===
-def keep_alive():
-    try:
-        response = requests.get(RENDER_URL)
-        logging.info(f"Pinged server: {response.status_code}")
-    except Exception as e:
-        logging.warning(f"Ping failed: {e}")
+# === Bot Logic ===
+def run_bot():
+    last_trade_direction = None
+    tickers = ['ETH-USD']
+    ping_interval = 600  # 10 minutes
+    last_ping_time = time.time()
 
-# === Live Bot Loop ===
-last_trade_direction = None
-tickers = ['ETH-USD']
-ping_interval = 600  # 10 minutes
-last_ping_time = time.time()
-
-try:
     while True:
-        live_data = yf.download(tickers, period="3d", interval="15m", progress=False)
-        signal, atr_value, TP, SL, reversal = atr_breakout_signals(live_data)
+        try:
+            live_data = yf.download(tickers, period="3d", interval="5m", progress=False)
+            signal, atr_value, TP, SL, reversal = atr_breakout_signals(live_data)
 
-        latest_signal = signal.iloc[-1] if not signal.empty else None
-        latest_index = signal.index[-1] if not signal.empty else None
-        tp_price = TP.loc[latest_index] if latest_index in TP else None
-        sl_price = SL.loc[latest_index] if latest_index in SL else None
+            latest_signal = signal.iloc[-1] if not signal.empty else None
+            latest_index = signal.index[-1] if not signal.empty else None
+            tp_price = TP.loc[latest_index] if latest_index in TP else None
+            sl_price = SL.loc[latest_index] if latest_index in SL else None
 
-        if latest_signal in ["LONG", "SHORT"] and latest_signal != last_trade_direction:
-            place_multiplier_trade(symbol, latest_signal, amount, tp_price, sl_price)
-            logging.info(f"Trade placed: {latest_signal} | TP: {tp_price} | SL: {sl_price}")
-            last_trade_direction = latest_signal
-        else:
-            logging.info("No new signal or same direction as last trade.")
+            if latest_signal in ["LONG", "SHORT"] and latest_signal != last_trade_direction:
+                place_multiplier_trade(symbol, latest_signal, amount, tp_price, sl_price)
+                logging.info(f"Trade placed: {latest_signal} | TP: {tp_price} | SL: {sl_price}")
+                last_trade_direction = latest_signal
+            else:
+                logging.info("No new signal or same direction as last trade.")
 
-        # Ping server to keep alive
-        if time.time() - last_ping_time > ping_interval:
-            keep_alive()
-            last_ping_time = time.time()
+            time.sleep(120)  # Wait 2 minutes before checking again
 
-        time.sleep(120)  # Wait 2 minutes before checking again
+        except Exception as e:
+            logging.error(f"Bot error: {e}")
+            time.sleep(60)
 
-except KeyboardInterrupt:
-    print("Bot stopped manually.")
+# === Start Bot in Background Thread ===
+bot_thread = threading.Thread(target=run_bot)
+bot_thread.daemon = True
+bot_thread.start()
+
+# === Run FastAPI Server ===
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))
+    uvicorn.run(app, host="0.0.0.0", port=port)

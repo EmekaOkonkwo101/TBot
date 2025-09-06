@@ -4,3 +4,5 @@ numpy
 matplotlib
 python-decouple
 websocket-client
+fastapi
+uvicorn
